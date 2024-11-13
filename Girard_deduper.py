@@ -83,8 +83,7 @@ headers = 0
 # Total non-duplicates written to output file
 lines_written = 0
 
-
-
+Set_Chrom = 1
 # Go through SAM file and place non-duplicates in output file
 with open(args.file, "r") as input, open(args.outfile, "w") as output, open("Duplicates.sam", "w") as Duplicate_fh:
     for line in input:
@@ -101,6 +100,10 @@ with open(args.file, "r") as input, open(args.outfile, "w") as output, open("Dup
             splitline = line.strip().split()
             # Chromosome of current read
             Chrom = splitline[2]
+            if Chrom != Set_Chrom:
+                Set_Chrom = Chrom
+                Non_duplicates.clear()
+
         
             # Q Name that contains UMI
             QNAME = splitline[0]
@@ -133,8 +136,8 @@ with open(args.file, "r") as input, open(args.outfile, "w") as output, open("Dup
                     position = adjust_minus(position, parsed_list)
 
                 # If the unique read info has not been seen, write to file, add to count
-                if (position, strand, UMI, Chrom) not in Non_duplicates:
-                    Non_duplicates.add((position, strand, UMI, Chrom))
+                if (position, strand, UMI) not in Non_duplicates:
+                    Non_duplicates.add((position, strand, UMI))
                     output.write(line)
                     lines_written += 1
 

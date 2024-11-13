@@ -57,14 +57,14 @@ def adjust_minus(position, parsed_list):
    # If there is not soft clipping on the left side, normally adjust position
     if parsed_list[0][1] != "S":
         for i in range(len(parsed_list)):
-            if parsed_list[i][1] == "M" or "N" or "D" or "S":
+            if parsed_list[i][1] in ["M","N","D","S"]:
                 position += parsed_list[i][0]
     # If there is soft clipping on left side, skip it
     else:
         for i in range(1, len(parsed_list)):
-            if parsed_list[i][1] == "M" or "N" or "D" or "S":
+            if parsed_list[i][1] in ["M","N","D","S"]:
                 position += parsed_list[i][0]
-    return position
+    return position - 1
 
 
 
@@ -86,7 +86,7 @@ lines_written = 0
 
 
 # Go through SAM file and place non-duplicates in output file
-with open(args.file, "r") as input, open(args.outfile, "w") as output:
+with open(args.file, "r") as input, open(args.outfile, "w") as output, open("Duplicates.sam", "w") as Duplicate_fh:
     for line in input:
         if line == "":
             break
@@ -142,7 +142,10 @@ with open(args.file, "r") as input, open(args.outfile, "w") as output:
                 # Counts duplicates 
                 else:
                     Duplicates += 1
+                    Duplicate_fh.write(line)
+
 output.close()
+Duplicate_fh.close()
 
 
 # Print stats

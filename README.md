@@ -1,66 +1,37 @@
-# Deduper
+# Deduper — Reference-Based PCR Duplicate Removal
 
-## Part 1
-Use this repo template to create your own Deduper repo - you should do all your work in your own repository. Please name it `Deduper-<github-user-name>`.
+A memory-efficient, single-pass tool for removing PCR duplicates from sorted single-end SAM files using known UMIs, without loading the entire file into memory.
 
-Write up a strategy for writing a Reference Based PCR Duplicate Removal tool. That is, given a sorted sam file of uniquely mapped reads, remove all PCR duplicates (retain only a single copy of each read). Develop a strategy that avoids loading everything into memory. You should not write any code for this portion of the assignment. Be sure to:
-- Define the problem
-- Write examples:
-    - Include a properly formated sorted input sam file
-    - Include a properly formated expected output sam file
-- Develop your algorithm using pseudocode
-- Determine high level functions
-    - Description
-    - Function headers
-    - Test examples (for individual functions)
-    - Return statement
-    
-For this portion of the assignment, you should design your algorithm for single-end data, with 96 UMIs. UMI information will be in the QNAME, like so: ```NS500451:154:HWKTMBGXX:1:11101:15364:1139:GAACAGGT```. Discard any UMIs with errors (or think about how you might error correct, if you're feeling ambitious).
+## Problem
 
-## Part 2
-An important part of writing code is reviewing code - both your own and other's. In this portion of the assignment, you will be assigned 3 students' pseudocode algorithms to review. Be sure to evaluate the following points:
-- Does the proposed algorithm make sense to you? Can you follow the logic?
-- Does the algorithm do everything it's supposed to do? (see part 1)
-- Are proposed functions reasonable? Are they "standalone" pieces of code?
+PCR-based library prep introduces duplicate reads that inflate coverage and bias downstream quantification. Standard duplicate marking (e.g. `samtools markdup`) uses position alone; this tool additionally uses the **UMI embedded in the read name** to distinguish true PCR duplicates from reads that independently mapped to the same position — a common and more rigorous strategy in real variant-calling and single-cell pipelines.
 
-You can find your assigned reviewees on Canvas. You can find your fellow students' repositories at 
+## Approach
+
+Given a coordinate-sorted SAM file of uniquely-mapped single-end reads and a list of 96 known UMIs:
+
+1. Stream the SAM file one read at a time (no full-file load — designed to scale to files with tens of millions of reads).
+2. Parse the CIGAR string to compute the read's **true 5' start position**, correcting for soft-clipping on both strands (a duplicate can appear to start at different positions in the SAM file if clipping differs, even though the underlying fragment is identical).
+3. Determine strand from the bitwise flag and combine `(chromosome, corrected position, strand, UMI)` into a duplicate-detection key.
+4. Discard reads with unrecognized UMIs (sequencing/PCR errors on the UMI itself), and retain only the first occurrence of each key.
+5. Write a properly formatted, deduplicated SAM file.
+
+Design and test cases were worked out in pseudocode before implementation — see [`Test_files/Psuedocode.md`](Test_files/Psuedocode.md) and the paired [`Test_files/Input.sam`](Test_files/Input.sam) / [`Test_files/Output.sam`](Test_files/Output.sam) fixtures used to validate correctness.
+
+## Usage
+
+```bash
+./Girard_deduper.py -f <sorted_input.sam> -o <deduplicated_output.sam> -u STL96.txt
 ```
-github.com/<user>/Deduper-<github-user-name>
-```
-Be sure to leave comments on their repositories by creating issues or by commenting on the pull request.
 
-## Part 3
-Write your deduper function!
+| Flag | Description |
+|---|---|
+| `-f`, `--file` | Path to a coordinate-sorted SAM file (single-end, uniquely mapped reads) |
+| `-o`, `--outfile` | Path to write the deduplicated SAM file |
+| `-u`, `--umi` | Text file of known UMIs, one per line ([`STL96.txt`](STL96.txt)) |
 
-Given a SAM file of uniquely mapped reads, and a text file containing the known UMIs, remove all PCR duplicates (retain only a single copy of each read). Remember:
-- Your Python code can assume a sorted sam file (you *might* need to use `samtools sort` outside of your Python script)
-- Account for: 
-    - all possible CIGAR strings (including adjusting for soft clipping, etc.)
-    - Strand
-    - Single-end reads
-    - Known UMIs
-- Considerations:
-    - Millions of reads – avoid loading everything into memory!
-    - Be sure to utilize functions appropriately
-    - Appropriately comment code and include doc strings
-- **CHALLENGE**: In a **separate branch**, implement options for
-    - Single-end vs paired-end
-    - Known UMIs vs randomers
-    - Error correction of known UMIs
-    - Choice of duplicate written to file
-    
-You MUST:
-- Write Python 3.12 compatible code
-- Include the following argparse options
-    - ```-f```, ```--file```: designates absolute file path to sorted sam file
-    - ```-o```, ```--outfile```: designates absolute file path to deduplicated sam file
-    - ```-u```, ```--umi```: designates file containing the list of UMIs
-    - ```-h```, ```--help```: prints a USEFUL help message (see argparse docs)
-        - That is, your code must be able to run (in a single step) if given a command in the format:
-          ```
-          ./<your_last_name>_deduper.py -u STL96.txt -f <in.sam> -o <out.sam>
-          ```
-- Output the first read encountered if duplicates are found
-- Output a properly formatted SAM file
-- Name your python script ```<your_last_name>_deduper.py``` and place it in the top level of your repo (that is, not inside a folder)
+**Note:** input must be sorted first, e.g. `samtools sort input.sam -o sorted.sam`.
 
+## Skills demonstrated
+
+Algorithm design from a written spec · CIGAR string parsing · SAM bitwise flag interpretation · streaming/constant-memory file processing · `argparse` CLI design · test-driven validation with hand-crafted fixtures
